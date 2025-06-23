@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Asset Management - Aston Kartika Grogol</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+    <style>
+        /* CSS LENGKAP UNTUK SEMUA FITUR */
+        :root {
+            --bg: #fff;
+            --text: #333;
+            --card-bg: #f9f9f9;
+            --border-color: #eee;
+            --header-color: #003366;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+        }
+        body.dark-mode {
+            --bg: #121212;
+            --text: #f5f5f5;
+            --card-bg: #1e1e1e;
+            --border-color: #333;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg);
+            color: var(--text);
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .hidden { display: none !important; }
+
+        /* --- BAGIAN LOGIN --- */
+        #login-section {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        #login-section h1 { font-size: 24px; }
+        #login-form input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 16px;
+            box-sizing: border-box;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        #login-form button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: var(--header-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        /* --- BAGIAN UTAMA APLIKASI --- */
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .top-bar button { padding: 6px 12px; font-size: 14px; cursor: pointer; }
+        #logout-btn { background-color: #d9534f; color: white; border: none; border-radius: 4px; }
+        
+        /* ... (CSS lain dari sebelumnya tetap sama) ... */
+        .logo-wrapper { text-align: center; margin-bottom: 10px; }
+        .logo { max-width: 200px; height: auto; }
+        h1, h2 { text-align: center; margin: 5px 0; }
+        h1 { font-size: 28px; }
+        h2 { font-size: 16px; color: gray; }
+        .input-form { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; padding: 20px; background-color: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); }
+        .input-form input { padding: 8px 12px; font-size: 14px; flex: 1 1 180px; }
+        .input-form button { padding: 8px 12px; font-size: 14px; white-space: nowrap; background-color: var(--header-color); color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .input-form button:hover { background-color: #004488; }
+        .search-bar { width: 100%; margin: 0 auto 20px auto; padding: 8px 12px; font-size: 14px; display: block; box-sizing: border-box; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .card { padding: 15px; border: 1px solid #ccc; border-radius: 12px; background-color: var(--card-bg); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); word-wrap: break-word; display: flex; flex-direction: column; }
+        .card h3 { background-color: var(--header-color); color: white; padding: 8px; border-radius: 8px 8px 0 0; font-size: 16px; margin: -15px -15px 10px -15px; text-align: center; }
+        .card p { margin: 5px 0; font-size: 14px; }
+        .card img { width: 100%; height: 150px; object-fit: cover; border-radius: 4px; margin-bottom: 10px; }
+        .card-actions { display: flex; gap: 5px; margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px; }
+        .card-actions button { width: 100%; padding: 8px 4px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; color: white; }
+        .edit-btn { background-color: #f0ad4e; }
+        .delete-btn { background-color: #d9534f; }
+        .print-btn { background-color: #5bc0de; }
+
+        /* --- NOTIFIKASI --- */
+        #notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-size: 16px;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(-50px);
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        #notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        #notification.success { background-color: var(--success-color); }
+        #notification.error { background-color: var(--error-color); }
+    </style>
+</head>
+<body>
+
+    <div id="login-section">
+        <h1>Login Manajemen Aset</h1>
+        <form id="login-form">
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <div id="app-container" class="container hidden">
+        <div class="top-bar">
+            <span id="user-email" style="font-size: 14px; margin-right: 15px;"></span>
+            <button onclick="toggleDarkMode()">🌙</button>
+            <button id="logout-btn">Logout</button>
+        </div>
+        <div class="logo-wrapper">
+            <img src="https://grahahotels.astonhotelsinternational.com/images/logos/hotels/2020/12/11/logo-aston-kartika-grogol-hotel-and-conference-center-normal-logo.png" class="logo" alt="Logo Aston">
+        </div>
+        <h1>ASTON KARTIKA GROGOL</h1>
+        <h2>ASSET MANAGEMENT</h2>
+
+        <form class="input-form" id="add-asset-form">
+            <input type="hidden" id="assetId">
+            <input type="text" id="namaAsset" placeholder="Nama Aset" required>
+            <input type="text" id="kodeAsset" placeholder="Kode Aset" required>
+            <input type="text" id="departemenAsset" placeholder="Departemen" required>
+            <input type="text" id="statusAsset" placeholder="Status" required>
+            <input type="file" id="gambarAsset" accept="image/*">
+            <button type="submit">💾 Simpan Aset</button>
+        </form>
+
+        <input type="text" id="searchInput" class="search-bar" placeholder="🔍 Cari berdasarkan Nama Aset...">
+        
+        <div id="assets-list" class="grid"></div>
+    </div>
+
+    <div id="notification" class="hidden"></div>
+
+<script>
+    // ===================================================================
+    // KODE JAVASCRIPT FINAL DENGAN SEMUA FITUR
+    // ===================================================================
+
+    // ⚠️ LANGKAH PALING PENTING ADA DI BAWAH INI
+    const SUPABASE_URL = 'https://nyxrgybnyleqkxieasyr.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55eHJneWJueWxlcWt4aWVhc3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0MTM0MDUsImV4cCI6MjA2NTk4OTQwNX0.A0OV03prGC5YmXCxjGpFiQ9Nim5UZq_5lQBqtJyadmw';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // --- REFERENSI ELEMEN ---
+    const loginSection = document.getElementById('login-section');
+    const appContainer = document.getElementById('app-container');
+    const loginForm = document.getElementById('login-form');
+    const logoutBtn = document.getElementById('logout-btn');
+    const userEmailSpan = document.getElementById('user-email');
+    const assetsList = document.getElementById('assets-list');
+    const addAssetForm = document.getElementById('add-asset-form');
+    const searchInput = document.getElementById('searchInput');
+    const notification = document.getElementById('notification');
+
+    // --- FUNGSI NOTIFIKASI ---
+    function showNotification(message, type = 'success') {
+        notification.textContent = message;
+        notification.className = type;
+        notification.classList.add('show');
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 3000);
+    }
+
+    // --- FUNGSI OTENTIKASI (AUTH) ---
+    loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+            showNotification('Login gagal: ' + error.message, 'error');
+        } else {
+            showNotification('Login berhasil!', 'success');
+        }
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+            showNotification('Logout gagal: ' + error.message, 'error');
+        }
+    });
+
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+            loginSection.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            userEmailSpan.textContent = session.user.email;
+            getAssets();
+        } else {
+            loginSection.classList.remove('hidden');
+            appContainer.classList.add('hidden');
+            userEmailSpan.textContent = '';
+        }
+    });
+
+    // --- FUNGSI CRUD ASET (Create, Read, Update, Delete) ---
+    async function getAssets() {
+        assetsList.innerHTML = '<p>Memuat data aset...</p>';
+        let query = supabaseClient.from('assets').select('*').order('nama_aset', { ascending: true });
+        
+        const searchTerm = searchInput.value.trim();
+        if (searchTerm) {
+            query = query.ilike('nama_aset', `%${searchTerm}%`);
+        }
+
+        const { data, error } = await query;
+        if (error) return showNotification('Gagal memuat data: ' + error.message, 'error');
+        if (data.length === 0) return assetsList.innerHTML = '<p>Belum ada data aset yang cocok.</p>';
+
+        assetsList.innerHTML = '';
+        data.forEach(asset => {
+            const assetCard = document.createElement('div');
+            assetCard.classList.add('card');
+            const imageUrl = asset.gambar_url ? `<img src="${asset.gambar_url}" alt="${asset.nama_aset}">` : '';
+            assetCard.innerHTML = `
+                ${imageUrl}
+                <h3>${asset.nama_aset}</h3>
+                <p><strong>Kode:</strong> ${asset.kode_aset}</p>
+                <p><strong>Departemen:</strong> ${asset.departemen}</p>
+                <p><strong>Status:</strong> ${asset.status}</p>
+                <div class="card-actions">
+                    <button class="edit-btn" data-id="${asset.id}">✏️ Edit</button>
+                    <button class="delete-btn" data-id="${asset.id}">🗑️ Hapus</button>
+                    <button class="print-btn" data-id="${asset.id}">🖨️ Print</button>
+                </div>`;
+            assetsList.appendChild(assetCard);
+        });
+    }
+
+    async function handleFormSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const assetId = form.querySelector('#assetId').value;
+        const submitButton = form.querySelector('button');
+        submitButton.disabled = true;
+        submitButton.textContent = 'Menyimpan...';
+
+        const assetData = {
+            nama_aset: form.querySelector('#namaAsset').value,
+            kode_aset: form.querySelector('#kodeAsset').value,
+            departemen: form.querySelector('#departemenAsset').value,
+            status: form.querySelector('#statusAsset').value,
+        };
+
+        const file = form.querySelector('#gambarAsset').files[0];
+        if (file) {
+            const fileName = `${Date.now()}-${file.name}`;
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage.from('gambar-aset').upload(fileName, file);
+            if (uploadError) {
+                submitButton.disabled = false;
+                return showNotification('Gagal upload gambar: ' + uploadError.message, 'error');
+            }
+            const { data: publicUrlData } = supabaseClient.storage.from('gambar-aset').getPublicUrl(uploadData.path);
+            assetData.gambar_url = publicUrlData.publicUrl;
+        }
+
+        const { error } = assetId 
+            ? await supabaseClient.from('assets').update(assetData).eq('id', assetId) 
+            : await supabaseClient.from('assets').insert([assetData]);
+
+        if (error) {
+            showNotification('Gagal menyimpan aset: ' + error.message, 'error');
+        } else {
+            showNotification(assetId ? 'Aset berhasil diperbarui!' : 'Aset baru berhasil ditambahkan!', 'success');
+            resetForm();
+            getAssets();
+        }
+        submitButton.disabled = false;
+        submitButton.textContent = '💾 Simpan Aset';
+    }
+
+    async function deleteAsset(id) {
+        if (!confirm('Apakah Anda yakin ingin menghapus aset ini?')) return;
+        const { error } = await supabaseClient.from('assets').delete().eq('id', id);
+        if (error) showNotification('Gagal menghapus aset: ' + error.message, 'error');
+        else {
+            showNotification('Aset berhasil dihapus.', 'success');
+            getAssets();
+        }
+    }
+
+    async function populateFormForEdit(id) {
+        const { data, error } = await supabaseClient.from('assets').select('*').eq('id', id).single();
+        if (error) return showNotification('Gagal mengambil data untuk diedit.', 'error');
+        
+        addAssetForm.querySelector('#assetId').value = data.id;
+        addAssetForm.querySelector('#namaAsset').value = data.nama_aset;
+        addAssetForm.querySelector('#kodeAsset').value = data.kode_aset;
+        addAssetForm.querySelector('#departemenAsset').value = data.departemen;
+        addAssetForm.querySelector('#statusAsset').value = data.status;
+        
+        addAssetForm.querySelector('button').textContent = '💾 Update Aset';
+        addAssetForm.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function resetForm() {
+        addAssetForm.reset();
+        addAssetForm.querySelector('#assetId').value = '';
+        addAssetForm.querySelector('button').textContent = '💾 Simpan Aset';
+    }
+
+    // --- FUNGSI PRINT & QR CODE ---
+    async function generateAndPrint(assetId) {
+        const { data: asset, error } = await supabaseClient.from('assets').select('*').eq('id', assetId).single();
+        if (error) return showNotification('Gagal mengambil data aset untuk dicetak.', 'error');
+        
+        const qrContent = JSON.stringify({ id: asset.id, kode: asset.kode_aset, nama: asset.nama_aset });
+        const printWindow = window.open('', '', 'width=400,height=500');
+        printWindow.document.write(`
+            <html><head><title>Cetak Aset</title></head><body style="font-family: Arial, sans-serif; text-align: center;">
+                <h2>Detail Aset</h2>
+                <p><strong>Nama:</strong> ${asset.nama_aset}</p>
+                <p><strong>Kode:</strong> ${asset.kode_aset}</p>
+                <p><strong>Departemen:</strong> ${asset.departemen}</p>
+                <canvas id="qrCodeCanvasPrint"></canvas>
+            </body></html>`);
+        printWindow.document.close();
+        
+        const qrCanvas = printWindow.document.getElementById('qrCodeCanvasPrint');
+        QRCode.toCanvas(qrCanvas, qrContent, { width: 200 }, function (error) {
+            if (error) console.error(error);
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        });
+    }
+
+    // --- EVENT LISTENERS ---
+    addAssetForm.addEventListener('submit', handleFormSubmit);
+    searchInput.addEventListener('input', getAssets);
+    assetsList.addEventListener('click', function(event) {
+        const target = event.target;
+        const id = target.dataset.id;
+        if (target.matches('.delete-btn')) deleteAsset(id);
+        if (target.matches('.edit-btn')) populateFormForEdit(id);
+        if (target.matches('.print-btn')) generateAndPrint(id);
+    });
+    
+    function toggleDarkMode() { document.body.classList.toggle('dark-mode'); }
+</script>
+</body>
+</html>
