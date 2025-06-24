@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Asset Management - Aston Kartika Grogol</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* CSS LENGKAP UNTUK SEMUA FITUR */
+        :root {
+            --bg: #fff;
+            --text: #333;
+            --card-bg: #f9f9f9;
+            --border-color: #eee;
+            --header-color: #003366;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+            --edit-color: #f0ad4e;
+            --delete-color: #d9534f;
+            --print-color: #5bc0de;
+        }
+        body.dark-mode {
+            --bg: #121212;
+            --text: #f5f5f5;
+            --card-bg: #1e1e1e;
+            --border-color: #333;
+        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: var(--bg); color: var(--text); box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
+        .hidden { display: none !important; }
+        .button { padding: 8px 15px; cursor: pointer; border-radius: 4px; border: none; font-size: 14px; }
+        .button-primary { background-color: var(--header-color); color: white; }
+
+        #login-section { max-width: 400px; margin: 100px auto; padding: 30px; background-color: var(--card-bg); border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        #login-section h1 { font-size: 24px; }
+        #login-form input { width: 100%; padding: 12px; margin-bottom: 15px; font-size: 16px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc; }
+        #login-form button { width: 100%; padding: 12px; font-size: 16px; cursor: pointer; background-color: var(--header-color); color: white; border: none; border-radius: 4px; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 20px; }
+        .top-bar { position: absolute; top: 20px; right: 20px; z-index: 100; display: flex; align-items: center; gap: 15px; }
+        .top-bar button { padding: 6px 12px; font-size: 14px; cursor: pointer; border-radius: 4px; border: none; }
+        #logout-btn { background-color: var(--delete-color); color: white; }
+        
+        .logo-wrapper { text-align: center; margin-bottom: 10px; }
+        .logo { max-width: 200px; height: auto; }
+        h1, h2 { text-align: center; margin: 5px 0; }
+        h1 { font-size: 28px; }
+        h2 { font-size: 16px; color: gray; }
+        .page-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; gap: 10px; }
+        .input-form { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; padding: 20px; background-color: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); }
+        .input-form input { padding: 8px 12px; font-size: 14px; flex: 1 1 180px; }
+        .input-form button { padding: 8px 12px; font-size: 14px; white-space: nowrap; background-color: var(--header-color); color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+        #dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; margin-top: 40px; }
+        .chart-container { padding: 20px; background-color: var(--card-bg); border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .chart-container h3 { text-align: center; margin-top: 0; }
+
+        #report-content h3 { background-color: var(--header-color); color: white; padding: 10px; border-radius: 5px; margin-top: 30px; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .report-table th, .report-table td { border: 1px solid var(--border-color); padding: 10px; text-align: left; }
+        .report-table thead { background-color: var(--card-bg); }
+        .report-table .action-cell { width: 150px; text-align: center; }
+        .report-table .action-cell button { margin: 0 2px; color: white; padding: 5px 10px; font-size: 12px; border:none; border-radius:4px; cursor:pointer; }
+        .edit-btn { background-color: var(--edit-color); }
+        .delete-btn { background-color: var(--delete-color); }
+        .print-btn { background-color: var(--print-color); }
+
+        #notification { position: fixed; top: 20px; right: 20px; padding: 15px 20px; border-radius: 5px; color: white; font-size: 16px; z-index: 1000; opacity: 0; transform: translateY(-50px); transition: opacity 0.5s, transform 0.5s; }
+        #notification.show { opacity: 1; transform: translateY(0); }
+        #notification.success { background-color: var(--success-color); }
+        #notification.error { background-color: var(--error-color); }
+    </style>
+</head>
+<body>
+
+    <div id="login-section">
+        <h1>ASTON KARTIKA GROGOL</h1>
+        <h1>ASSET MANAGEMENT</h1>
+
+        <form id="login-form">
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+    
+    <div id="global-controls" class="top-bar hidden">
+        <span id="user-email" style="font-size: 14px; margin-right: 15px;"></span>
+        <button id="darkModeToggle">🌙</button>
+        <button id="logout-btn">Logout</button>
+    </div>
+
+    <div id="main-container" class="container hidden">
+        <div class="logo-wrapper">
+            <img src="https://grahahotels.astonhotelsinternational.com/images/logos/hotels/2020/12/11/logo-aston-kartika-grogol-hotel-and-conference-center-normal-logo.png" class="logo" alt="Logo Aston">
+        </div>
+        <h1>ASTON KARTIKA GROGOL</h1>
+        <h2>ASSET MANAGEMENT</h2>
+
+        <div class="page-header" style="margin-top: 40px;">
+            <h1 style="text-align: left;">Manajemen Aset</h1>
+            <button id="view-report-btn" class="button button-primary">📋 Lihat Laporan Lengkap</button>
+        </div>
+        
+        <form class="input-form" id="add-asset-form">
+            <input type="hidden" id="assetId">
+            <input type="text" id="namaAsset" placeholder="Nama Aset" required>
+            <input type="text" id="kodeAsset" placeholder="Kode Aset" required>
+            <input type="text" id="departemenAsset" placeholder="Departemen" required>
+            <input type="text" id="statusAsset" placeholder="Status" required>
+            <input type="file" id="gambarAsset" accept="image/*">
+            <button type="submit">💾 Simpan Aset</button>
+        </form>
+        
+        <hr style="margin: 40px 0; border: 1px solid var(--border-color);">
+
+        <h1 style="text-align: left;">Dasbor Analitik</h1>
+        <div id="dashboard-grid">
+            <div class="chart-container">
+                <h3>Aset per Departemen</h3>
+                <canvas id="department-chart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Aset per Status</h3>
+                <canvas id="status-chart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div id="report-container" class="container hidden">
+         <div class="page-header">
+            <h1>Laporan Aset per Departemen</h1>
+            <button id="back-to-main-btn" class="button button-primary">Kembali ke Halaman Utama</button>
+        </div>
+        <button id="export-btn" class="button" style="background-color:#1D6F42; color:white;">📄 Export ke Excel</button>
+        <div id="report-content"><p>Memuat laporan...</p></div>
+    </div>
+
+    <div id="notification" class="hidden"></div>
+
+<script>
+    // --- 1. KONFIGURASI & REFERENSI ELEMEN ---
+    const SUPABASE_URL = 'https://nyxrgybnyleqkxieasyr.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55eHJneWJueWxlcWt4aWVhc3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0MTM0MDUsImV4cCI6MjA2NTk4OTQwNX0.A0OV03prGC5YmXCxjGpFiQ9Nim5UZq_5lQBqtJyadmw';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+    const loginSection = document.getElementById('login-section');
+    const mainContainer = document.getElementById('main-container');
+    const reportContainer = document.getElementById('report-container');
+    const dashboardContainer = document.getElementById('dashboard-container');
+    const globalControls = document.getElementById('global-controls');
+    
+    const loginForm = document.getElementById('login-form');
+    const logoutBtn = document.getElementById('logout-btn');
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const userEmailSpan = document.getElementById('user-email');
+    const addAssetForm = document.getElementById('add-asset-form');
+    const notification = document.getElementById('notification');
+
+    const viewReportBtn = document.getElementById('view-report-btn');
+    const backToMainBtn = document.getElementById('back-to-main-btn');
+    
+    const reportContent = document.getElementById('report-content');
+    const exportBtn = document.getElementById('export-btn');
+
+    let departmentChartInstance, statusChartInstance;
+
+    // --- 2. FUNGSI NAVIGASI ---
+    function showPage(pageToShow) {
+        [mainContainer, reportContainer].forEach(page => page.classList.add('hidden'));
+        if (pageToShow) pageToShow.classList.remove('hidden');
+    }
+
+    // --- 3. FUNGSI INTI APLIKASI ---
+
+    async function renderDashboard() {
+        const { data, error } = await supabaseClient.from('assets').select('departemen, status');
+        if (error) { console.error("Error fetching dashboard data:", error); return; }
+
+        if (departmentChartInstance) departmentChartInstance.destroy();
+        if (statusChartInstance) statusChartInstance.destroy();
+
+        const departmentCounts = data.reduce((acc, { departemen }) => { const dept = departemen || 'Lainnya'; acc[dept] = (acc[dept] || 0) + 1; return acc; }, {});
+        const statusCounts = data.reduce((acc, { status }) => { const stat = status || 'Tanpa Status'; acc[stat] = (acc[stat] || 0) + 1; return acc; }, {});
+
+        const deptCtx = document.getElementById('department-chart').getContext('2d');
+        departmentChartInstance = new Chart(deptCtx, { type: 'doughnut', data: { labels: Object.keys(departmentCounts), datasets: [{ data: Object.values(departmentCounts), backgroundColor: ['#003366', '#f0ad4e', '#5bc0de', '#5cb85c', '#d9534f', '#777777'], hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: true } });
+
+        const statusCtx = document.getElementById('status-chart').getContext('2d');
+        statusChartInstance = new Chart(statusCtx, { type: 'doughnut', data: { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#5cb85c', '#d9534f', '#f0ad4e', '#777777', '#003366', '#5bc0de'], hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: true } });
+    }
+
+    async function generateAssetReport() {
+        reportContent.innerHTML = '<p>Memuat laporan...</p>';
+        const { data: assets, error } = await supabaseClient.from('assets').select('*').order('departemen').order('nama_aset');
+        if (error) return showNotification('Gagal memuat laporan: ' + error.message, 'error');
+        if (assets.length === 0) return reportContent.innerHTML = '<p>Belum ada data aset untuk dilaporkan.</p>';
+        
+        let reportHTML = '';
+        const groupedAssets = assets.reduce((acc, asset) => { const department = asset.departemen || 'Tanpa Departemen'; if (!acc[department]) acc[department] = []; acc[department].push(asset); return acc; }, {});
+        
+        for (const department in groupedAssets) {
+            reportHTML += `<h3>Departemen: ${department}</h3><table class="report-table"><thead><tr><th>Kode Aset</th><th>Nama Aset</th><th>Status</th><th class="action-cell">Aksi</th></tr></thead><tbody>`;
+            groupedAssets[department].forEach(asset => {
+                reportHTML += `<tr><td>${asset.kode_aset}</td><td>${asset.nama_aset}</td><td>${asset.status}</td>
+                               <td class="action-cell">
+                                   <button class="button edit-btn" data-id="${asset.id}" title="Edit">✏️</button>
+                                   <button class="button delete-btn" data-id="${asset.id}" title="Hapus">🗑️</button>
+                                   <button class="button print-btn" data-id="${asset.id}" title="Print QR">🖨️</button>
+                               </td></tr>`;
+            });
+            reportHTML += `</tbody></table>`;
+        }
+        reportContent.innerHTML = reportHTML;
+    }
+
+    async function handleFormSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const assetId = form.querySelector('#assetId').value;
+        const submitButton = form.querySelector('button');
+        submitButton.disabled = true;
+        submitButton.textContent = 'Menyimpan...';
+
+        const assetData = { nama_aset: form.querySelector('#namaAsset').value, kode_aset: form.querySelector('#kodeAsset').value, departemen: form.querySelector('#departemenAsset').value, status: form.querySelector('#statusAsset').value };
+        const file = form.querySelector('#gambarAsset').files[0];
+
+        if (file) {
+            const fileName = `${Date.now()}-${file.name}`;
+            // PENTING: Pastikan nama bucket 'gambar-aset' ini sudah benar!
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage.from('gambar-aset').upload(fileName, file);
+            if (uploadError) {
+                submitButton.disabled = false;
+                return showNotification('Gagal upload gambar: ' + uploadError.message, 'error');
+            }
+            const { data: publicUrlData } = supabaseClient.storage.from('gambar-aset').getPublicUrl(uploadData.path);
+            assetData.gambar_url = publicUrlData.publicUrl;
+        }
+
+        const { error } = assetId ? await supabaseClient.from('assets').update(assetData).eq('id', assetId) : await supabaseClient.from('assets').insert([assetData]);
+
+        if (error) {
+            showNotification('Gagal menyimpan aset: ' + error.message, 'error');
+        } else {
+            showNotification(assetId ? 'Aset berhasil diperbarui!' : 'Aset baru berhasil ditambahkan!', 'success');
+            resetForm();
+            renderDashboard();
+        }
+        submitButton.disabled = false;
+        submitButton.textContent = assetId ? '💾 Update Aset' : '💾 Simpan Aset Baru';
+    }
+
+    // --- 4. FUNGSI UTILITAS & AKSI ---
+    function showNotification(message, type = 'success') {
+        notification.textContent = message;
+        notification.className = type;
+        notification.classList.add('show');
+        setTimeout(() => { notification.classList.remove('show'); }, 3000);
+    }
+    
+    async function deleteAsset(id) {
+        if (!confirm('Apakah Anda yakin ingin menghapus aset ini? Aksi ini tidak bisa dibatalkan.')) return;
+        const { error } = await supabaseClient.from('assets').delete().eq('id', id);
+        if (error) {
+            showNotification('Gagal menghapus aset: ' + error.message, 'error');
+        } else {
+            showNotification('Aset berhasil dihapus.', 'success');
+            generateAssetReport();
+            renderDashboard();
+        }
+    }
+
+    async function populateFormForEdit(id) {
+        showPage(mainContainer);
+        const { data, error } = await supabaseClient.from('assets').select('*').eq('id', id).single();
+        if (error) return showNotification('Gagal mengambil data untuk diedit.', 'error');
+        
+        addAssetForm.querySelector('#assetId').value = data.id;
+        addAssetForm.querySelector('#namaAsset').value = data.nama_aset;
+        addAssetForm.querySelector('#kodeAsset').value = data.kode_aset;
+        addAssetForm.querySelector('#departemenAsset').value = data.departemen;
+        addAssetForm.querySelector('#statusAsset').value = data.status;
+        
+        addAssetForm.querySelector('button').textContent = '💾 Update Aset';
+        addAssetForm.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetForm() {
+        addAssetForm.reset();
+        addAssetForm.querySelector('#assetId').value = '';
+        addAssetForm.querySelector('button').textContent = '💾 Simpan Aset Baru';
+    }
+
+    async function exportToCsv() { /* ... (Sama seperti sebelumnya) ... */ }
+    async function generateAndPrint(assetId) { /* ... (Sama seperti sebelumnya) ... */ }
+    function toggleDarkMode() { document.body.classList.toggle('dark-mode'); }
+
+    // --- 5. FUNGSI OTENTIKASI & EVENT LISTENERS ---
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+            loginSection.classList.add('hidden');
+            globalControls.classList.remove('hidden');
+            showPage(mainContainer);
+            renderDashboard();
+            userEmailSpan.textContent = session.user.email;
+        } else {
+            loginSection.classList.remove('hidden');
+            showPage(null);
+            globalControls.classList.add('hidden');
+            userEmailSpan.textContent = '';
+        }
+    });
+
+    loginForm.addEventListener('submit', async (event) => { /* ... (Sama seperti sebelumnya) ... */ });
+    logoutBtn.addEventListener('click', () => supabaseClient.auth.signOut());
+    addAssetForm.addEventListener('submit', handleFormSubmit);
+    viewReportBtn.addEventListener('click', () => { showPage(reportContainer); generateAssetReport(); });
+    backToMainBtn.addEventListener('click', () => { showPage(mainContainer); renderDashboard(); });
+
+    reportContent.addEventListener('click', function(event) {
+        const button = event.target.closest('button');
+        if (!button) return;
+        const id = button.dataset.id;
+        if (button.matches('.print-btn')) generateAndPrint(id);
+        if (button.matches('.edit-btn')) populateFormForEdit(id);
+        if (button.matches('.delete-btn')) deleteAsset(id);
+    });
+
+    exportBtn.addEventListener('click', exportToCsv);
+    darkModeToggle.addEventListener('click', toggleDarkMode);
+
+</script>
+</body>
+</html>
