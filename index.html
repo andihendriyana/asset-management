@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Asset Management - Aston Kartika Grogol</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        /* CSS Lengkap untuk Semua Fitur */
+        :root {
+            --bg: #fff; --text: #333; --card-bg: #f9f9f9; --border-color: #eee; --header-color: #003366;
+            --success-color: #28a745; --error-color: #dc3545; --edit-color: #f0ad4e; --delete-color: #d9534f;
+            --print-color: #5bc0de; --import-color: #5cb85c;
+        }
+        body.dark-mode { --bg: #121212; --text: #f5f5f5; --card-bg: #1e1e1e; --border-color: #333; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: var(--bg); color: var(--text); box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
+        .hidden { display: none !important; }
+        .button { padding: 8px 15px; cursor: pointer; border-radius: 4px; border: none; font-size: 14px; }
+        .button-primary { background-color: var(--header-color); color: white; }
+        #login-section { max-width: 400px; margin: 100px auto; padding: 30px; background-color: var(--card-bg); border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        #login-form input, #login-form button { width: 100%; padding: 12px; margin-bottom: 15px; font-size: 16px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc; }
+        #login-form button { background-color: var(--header-color); color: white; border: none; }
+        .container { max-width: 960px; margin: 0 auto; padding: 20px; }
+        .top-bar { position: absolute; top: 20px; right: 20px; z-index: 100; display: flex; align-items: center; gap: 15px; }
+        .top-bar button { padding: 6px 12px; font-size: 14px; cursor: pointer; border-radius: 4px; border: none; }
+        #logout-btn { background-color: var(--delete-color); color: white; }
+        .logo-wrapper { text-align: center; margin-bottom: 10px; }
+        .logo { max-width: 200px; height: auto; }
+        h1, h2 { text-align: center; margin: 5px 0; }
+        h1 { font-size: 28px; }
+        h2 { font-size: 16px; color: gray; }
+        .page-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; gap: 10px; }
+        .input-form { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; padding: 20px; background-color: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); }
+        .input-form input { padding: 8px 12px; font-size: 14px; flex: 1 1 180px; }
+        .input-form button { padding: 8px 12px; font-size: 14px; white-space: nowrap; background-color: var(--header-color); color: white; border: none; border-radius: 4px; cursor: pointer; }
+        #report-filters { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 15px; align-items: end; padding: 20px; background-color: var(--card-bg); border-radius: 8px; margin-bottom: 20px; }
+        #report-filters input, #report-filters select, #report-filters button { padding: 10px; font-size: 14px; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        #apply-filter-btn { background-color: var(--header-color); color: white; border: none; cursor: pointer; }
+        #impor-section { margin-top: 30px; flex-direction: column; align-items: flex-start; }
+        #impor-section h3, #impor-section p { margin: 0 0 10px 0; }
+        #import-csv-btn { margin-top: 10px; background-color: var(--import-color); color: white; }
+        #dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; }
+        .chart-container { padding: 20px; background-color: var(--card-bg); border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .chart-container h3 { text-align: center; margin-top: 0; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .report-table th, .report-table td { border: 1px solid var(--border-color); padding: 10px; text-align: left; }
+        .report-table .action-cell { width: 150px; text-align: center; }
+        .report-table .action-cell button { margin: 0 2px; color: white; padding: 5px 10px; font-size: 12px; border:none; border-radius:4px; cursor:pointer; }
+        .edit-btn { background-color: var(--edit-color); }
+        .delete-btn { background-color: var(--delete-color); }
+        .print-btn { background-color: var(--print-color); }
+        #scanner-section { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; flex-direction: column; z-index: 2000; }
+        #reader { width: 90%; max-width: 500px; background-color: white; border-radius: 8px; }
+        #close-scanner-btn { margin-top: 20px; padding: 10px 20px; font-size: 16px; background-color: var(--delete-color); color:white; }
+        #notification { position: fixed; top: 20px; right: 20px; padding: 15px 20px; border-radius: 5px; color: white; font-size: 16px; z-index: 2001; opacity: 0; transform: translateY(-50px); transition: opacity 0.5s, transform 0.5s; }
+        #notification.show { opacity: 1; transform: translateY(0); }
+        #notification.success { background-color: var(--success-color); }
+        #notification.error { background-color: var(--error-color); }
+    </style>
+</head>
+<body>
+
+    <div id="login-section">
+        <h1>Login Manajemen Aset</h1>
+        <form id="login-form"><input type="email" id="email" placeholder="Email" required><input type="password" id="password" placeholder="Password" required><button type="submit">Login</button></form>
+    </div>
+    
+    <div id="global-controls" class="top-bar hidden">
+        <span id="user-email" style="font-size: 14px; margin-right: 15px;"></span>
+        <button id="darkModeToggle">🌙</button>
+        <button id="logout-btn">Logout</button>
+    </div>
+
+    <div id="main-container" class="container hidden">
+        <div class="logo-wrapper"><img src="images/logo-aston.png" class="logo" alt="Logo Aston Kartika Grogol"></div>
+        <h1>ASTON KARTIKA GROGOL</h1>
+        <h2>ASSET MANAGEMENT</h2>
+        <div class="page-header" style="margin-top: 40px;">
+            <h1 style="text-align: left;">Manajemen Aset</h1>
+            <div>
+                <button id="scan-asset-btn" class="button" style="background-color: var(--edit-color); color:white;">📷 Scan Aset</button>
+                <button id="view-import-btn" class="button" style="margin-left: 10px; background-color: var(--import-color);">🚀 Impor</button>
+                <button id="view-report-btn" class="button button-primary" style="margin-left: 10px;">📋 Laporan</button>
+            </div>
+        </div>
+        <form class="input-form" id="add-asset-form">
+            <input type="hidden" id="assetId">
+            <input type="text" id="namaAsset" placeholder="Nama Aset" required>
+            <input type="text" id="kodeAsset" placeholder="Kode Aset" required>
+            <input type="text" id="departemenAsset" placeholder="Departemen" required>
+            <input type="text" id="statusAsset" placeholder="Status" required>
+            <input type="number" id="hargaAsset" placeholder="Harga Beli (Rp)" step="1000">
+            <input type="date" id="tanggalBeliAsset" title="Tanggal Pembelian">
+            <input type="number" id="umurManfaatAsset" placeholder="Umur Manfaat (Tahun)">
+            <input type="file" id="gambarAsset" accept="image/*">
+            <button type="submit">💾 Simpan Aset</button>
+        </form>
+        <hr style="margin: 40px 0; border: 1px solid var(--border-color);">
+        <h1 style="text-align: left;">Dasbor Analitik</h1>
+        <div id="dashboard-grid">
+            <div class="chart-container"><h3>Aset per Departemen</h3><canvas id="department-chart"></canvas></div>
+            <div class="chart-container"><h3>Aset per Status</h3><canvas id="status-chart"></canvas></div>
+        </div>
+    </div>
+    
+    <div id="report-container" class="container hidden">
+         <div class="page-header">
+            <h1>Laporan Aset</h1>
+            <button class="button button-primary back-to-main-btn">Kembali</button>
+        </div>
+        <div id="report-filters" class="input-form">
+            <input type="text" id="search-keyword" placeholder="Cari nama atau kode aset...">
+            <select id="filter-department"><option value="">Semua Departemen</option></select>
+            <select id="filter-status"><option value="">Semua Status</option></select>
+            <button id="apply-filter-btn" class="button-primary">Saring</button>
+        </div>
+        <button id="export-btn" class="button" style="background-color:#1D6F42; color:white; margin-top:10px;">📄 Export ke Excel</button>
+        <div id="report-content"><p>Memuat laporan...</p></div>
+    </div>
+
+    <div id="import-container" class="container hidden">
+        <div class="page-header">
+            <h1>Impor Data Massal dari CSV</h1>
+            <button class="button button-primary back-to-main-btn">Kembali</button>
+        </div>
+        <div id="impor-section" class="input-form">
+            <h3>Impor Data dari File CSV</h3>
+            <p>Gunakan file .csv dengan header seperti: `nama asset`, `kode asset`, `departemen`, `status`, `harga pembelian`, `tanggal pembelian`, `umur manfaat tahun`</p>
+            <input type="file" id="csv-file-input" accept=".csv">
+            <button id="import-csv-btn" class="button">🚀 Impor Data Sekarang</button>
+            <div id="import-feedback" style="margin-top: 10px; font-size: 14px; width: 100%;"></div>
+        </div>
+    </div>
+
+    <div id="scanner-section" class="hidden"><div id="reader"></div><button id="close-scanner-btn" class="button">Tutup Scanner</button></div>
+    <div id="notification" class="hidden"></div>
+
+<script>
+    // --- 1. KONFIGURASI & REFERENSI ---
+     const SUPABASE_URL = 'https://nyxrgybnyleqkxieasyr.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55eHJneWJueWxlcWt4aWVhc3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0MTM0MDUsImV4cCI6MjA2NTk4OTQwNX0.A0OV03prGC5YmXCxjGpFiQ9Nim5UZq_5lQBqtJyadmw';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+    const loginSection = document.getElementById('login-section'),mainContainer = document.getElementById('main-container'),reportContainer = document.getElementById('report-container'),importContainer = document.getElementById('import-container'),globalControls = document.getElementById('global-controls'),loginForm = document.getElementById('login-form'),logoutBtn = document.getElementById('logout-btn'),darkModeToggle = document.getElementById('darkModeToggle'),userEmailSpan = document.getElementById('user-email'),addAssetForm = document.getElementById('add-asset-form'),notification = document.getElementById('notification'),viewReportBtn = document.getElementById('view-report-btn'),reportContent = document.getElementById('report-content'),exportBtn = document.getElementById('export-btn'),csvFileInput = document.getElementById('csv-file-input'),importCsvBtn = document.getElementById('import-csv-btn'),importFeedback = document.getElementById('import-feedback'),scanAssetBtn = document.getElementById('scan-asset-btn'),scannerSection = document.getElementById('scanner-section'),closeScannerBtn = document.getElementById('close-scanner-btn'),viewImportBtn = document.getElementById('view-import-btn'),searchKeywordInput = document.getElementById('search-keyword'),filterDepartmentSelect = document.getElementById('filter-department'),filterStatusSelect = document.getElementById('filter-status'),applyFilterBtn = document.getElementById('apply-filter-btn');
+    const backToMainButtons = document.querySelectorAll('.back-to-main-btn');
+    
+    let departmentChartInstance, statusChartInstance, html5QrCode;
+
+    // --- 2. FUNGSI NAVIGASI ---
+    function showPage(pageToShow) {
+        [mainContainer, reportContainer, importContainer].forEach(page => page.classList.add('hidden'));
+        if (pageToShow) pageToShow.classList.remove('hidden');
+    }
+
+    // --- 3. FUNGSI INTI APLIKASI ---
+    async function renderDashboard() {
+        const { data, error } = await supabaseClient.from('assets').select('departemen, status');
+        if (error) { console.error("Error fetching dashboard data:", error); return; }
+        if (departmentChartInstance) departmentChartInstance.destroy();
+        if (statusChartInstance) statusChartInstance.destroy();
+        const departmentCounts = data.reduce((acc, { departemen }) => { const dept = departemen || 'Lainnya'; acc[dept] = (acc[dept] || 0) + 1; return acc; }, {});
+        const statusCounts = data.reduce((acc, { status }) => { const stat = status || 'Tanpa Status'; acc[stat] = (acc[stat] || 0) + 1; return acc; }, {});
+        try {
+            const deptCtx = document.getElementById('department-chart').getContext('2d');
+            departmentChartInstance = new Chart(deptCtx, { type: 'doughnut', data: { labels: Object.keys(departmentCounts), datasets: [{ data: Object.values(departmentCounts), backgroundColor: ['#003366', '#f0ad4e', '#5bc0de', '#5cb85c', '#d9534f', '#777777'], hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: true } });
+            const statusCtx = document.getElementById('status-chart').getContext('2d');
+            statusChartInstance = new Chart(statusCtx, { type: 'doughnut', data: { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#5cb85c', '#d9534f', '#f0ad4e', '#777777', '#003366', '#5bc0de'], hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: true } });
+        } catch (e) { console.error("Chart rendering error:", e); }
+    }
+    
+    async function populateFilterOptions() {
+        if (filterDepartmentSelect.options.length > 1) return;
+        const { data, error } = await supabaseClient.from('assets').select('departemen, status');
+        if (error) return console.error('Error fetching filter options:', error);
+        const departments = [...new Set(data.map(item => item.departemen).filter(Boolean))];
+        const statuses = [...new Set(data.map(item => item.status).filter(Boolean))];
+        filterDepartmentSelect.innerHTML = '<option value="">Semua Departemen</option>';
+        departments.forEach(dept => filterDepartmentSelect.innerHTML += `<option value="${dept}">${dept}</option>`);
+        filterStatusSelect.innerHTML = '<option value="">Semua Status</option>';
+        statuses.forEach(stat => filterStatusSelect.innerHTML += `<option value="${stat}">${stat}</option>`);
+    }
+
+    async function generateAssetReport() {
+        reportContent.innerHTML = '<p>Memuat laporan...</p>';
+        let query = supabaseClient.from('assets').select('*');
+        const keyword = searchKeywordInput.value.trim();
+        const department = filterDepartmentSelect.value;
+        const status = filterStatusSelect.value;
+        if (keyword) {
+            query = query.or(`nama_aset.ilike.%${keyword}%,kode_aset.ilike.%${keyword}%`);
+        }
+        if (department) {
+            query = query.eq('departemen', department);
+        }
+        if (status) {
+            query = query.eq('status', status);
+        }
+        query = query.order('departemen').order('nama_aset');
+        const { data: assets, error } = await query;
+        if (error) return showNotification('Gagal memuat laporan: ' + error.message, 'error');
+        if (assets.length === 0) return reportContent.innerHTML = '<p>Belum ada data aset yang cocok.</p>';
+        const groupedAssets = assets.reduce((acc, asset) => { const department = asset.departemen || 'Tanpa Departemen'; if (!acc[department]) acc[department] = []; acc[department].push(asset); return acc; }, {});
+        let reportHTML = '';
+        for (const department in groupedAssets) {
+            reportHTML += `<h3>Departemen: ${department}</h3><table class="report-table"><thead><tr><th>Kode Aset</th><th>Nama Aset</th><th>Status</th><th>Harga Beli</th><th>Nilai Buku Saat Ini</th><th>Tanggal Dibuat</th><th class="action-cell">Aksi</th></tr></thead><tbody>`;
+            groupedAssets[department].forEach(asset => {
+                const createdDate = asset.created_at ? new Date(asset.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A';
+                const { currentValueFmt, purchasePriceFmt } = calculateDepreciation(asset);
+                reportHTML += `<tr><td>${asset.kode_aset}</td><td>${asset.nama_aset}</td><td>${asset.status}</td><td>${purchasePriceFmt}</td><td>${currentValueFmt}</td><td>${createdDate}</td><td class="action-cell"><button class="button edit-btn" data-id="${asset.id}" title="Edit">✏️</button><button class="button delete-btn" data-id="${asset.id}" title="Hapus">🗑️</button><button class="button print-btn" data-id="${asset.id}" title="Print QR">🖨️</button></td></tr>`;
+            });
+            reportHTML += `</tbody></table>`;
+        }
+        reportContent.innerHTML = reportHTML;
+    }
+
+    async function handleFormSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const assetId = form.querySelector('#assetId').value;
+        const submitButton = form.querySelector('button[type="submit"]');
+        submitButton.disabled = true; submitButton.textContent = 'Menyimpan...';
+        const assetData = { nama_aset: form.querySelector('#namaAsset').value, kode_aset: form.querySelector('#kodeAsset').value, departemen: form.querySelector('#departemenAsset').value, status: form.querySelector('#statusAsset').value, harga_pembelian: parseFloat(form.querySelector('#hargaAsset').value) || null, tanggal_pembelian: form.querySelector('#tanggalBeliAsset').value || null, umur_manfaat_tahun: parseInt(form.querySelector('#umurManfaatAsset').value) || null };
+        const file = form.querySelector('#gambarAsset').files[0];
+        if (file) {
+            const fileName = `${Date.now()}-${file.name}`;
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage.from('gambar-aset').upload(fileName, file);
+            if (uploadError) { submitButton.disabled = false; return showNotification('Gagal upload gambar: ' + uploadError.message, 'error'); }
+            const { data: publicUrlData } = supabaseClient.storage.from('gambar-aset').getPublicUrl(uploadData.path);
+            assetData.gambar_url = publicUrlData.publicUrl;
+        }
+        const { error } = assetId ? await supabaseClient.from('assets').update(assetData).eq('id', assetId) : await supabaseClient.from('assets').insert([assetData]);
+        if (error) { showNotification('Gagal menyimpan aset: ' + error.message, 'error'); } 
+        else { showNotification(assetId ? 'Aset berhasil diperbarui!' : 'Aset baru berhasil ditambahkan!', 'success'); resetForm(); renderDashboard(); }
+        submitButton.disabled = false;
+        submitButton.textContent = assetId ? '💾 Update Aset' : '💾 Simpan Aset';
+    }
+    
+    async function handleCsvImport() {
+        const file = csvFileInput.files[0];
+        if (!file) return showNotification('Pilih file CSV.', 'error');
+        importCsvBtn.disabled = true; importCsvBtn.textContent = 'Memproses...'; importFeedback.textContent = '';
+        Papa.parse(file, { header: true, skipEmptyLines: true, complete: async (results) => { 
+            const dataFromCsv = results.data;
+            if (dataFromCsv.length === 0) { resetImportButton(); return showNotification('File CSV kosong atau format salah.', 'error'); }
+            importFeedback.textContent = `Mendeteksi ${dataFromCsv.length} baris. Menerjemahkan data...`;
+            try {
+                const mappedData = dataFromCsv.map(row => {
+                    const parseCustomDate = (dateStr) => { const s = String(dateStr || '').replace(/[^0-9]/g, ''); if (!s) return null; const year = s.slice(-4); const month = s.slice(-6, -4); const day = s.slice(0, s.length - 6); const finalDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`); return isNaN(finalDate.getTime()) ? null : finalDate.toISOString().split('T')[0]; };
+                    return { nama_aset: row['nama asset'], kode_aset: row['kode asset'], departemen: row.departemen, status: row.status, harga_pembelian: parseFloat(String(row['harga pembelian']).replace(/[^0-9.-]+/g,"")) || null, tanggal_pembelian: parseCustomDate(row['tanggal pembelian']), umur_manfaat_tahun: parseInt(row['umur manfaat tahun']) || null };
+                });
+                importFeedback.textContent = `Data berhasil diterjemahkan. Mengirim ${mappedData.length} baris ke database...`;
+                const { error } = await supabaseClient.from('assets').insert(mappedData);
+                if (error) { showNotification('Impor gagal: ' + error.message, 'error'); importFeedback.textContent = `Terjadi kesalahan. Periksa Console (F12).`; console.error("Import Error:", error); } 
+                else { showNotification(`${mappedData.length} data aset berhasil diimpor!`, 'success'); importFeedback.textContent = `Impor selesai.`; csvFileInput.value = ''; renderDashboard(); }
+            } catch (e) { showNotification('Error saat memproses data: ' + e.message, 'error'); importFeedback.textContent = 'Format data di dalam file CSV sepertinya salah.'; console.error("Data mapping error:", e); }
+            resetImportButton();
+        }, error: (err) => { showNotification('Gagal baca file CSV: ' + err.message, 'error'); resetImportButton(); } });
+    }
+
+    function resetImportButton() { importCsvBtn.disabled = false; importCsvBtn.textContent = '🚀 Impor Data Sekarang'; }
+    
+    function calculateDepreciation(asset) { const { harga_pembelian, tanggal_pembelian, umur_manfaat_tahun } = asset; const purchasePriceFmt = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(harga_pembelian || 0); if (!harga_pembelian || !tanggal_pembelian || !umur_manfaat_tahun) return { currentValueFmt: 'N/A', purchasePriceFmt }; const purchaseDate = new Date(tanggal_pembelian); const now = new Date(); const assetAgeYears = (now - purchaseDate) / 31557600000; if (assetAgeYears < 0) return { currentValueFmt: purchasePriceFmt, purchasePriceFmt }; const annualDepreciation = harga_pembelian / umur_manfaat_tahun; let totalDepreciation = annualDepreciation * assetAgeYears; if (totalDepreciation > harga_pembelian) totalDepreciation = harga_pembelian; const currentValue = harga_pembelian - totalDepreciation; const currentValueFmt = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(currentValue > 0 ? currentValue : 0); return { currentValueFmt, purchasePriceFmt }; }
+    function showNotification(message, type = 'success') { notification.textContent = message; notification.className = type; notification.classList.add('show'); setTimeout(() => { notification.classList.remove('show'); }, 3000); }
+    
+    async function deleteAsset(id) {
+        if (!confirm('Apakah Anda yakin ingin menghapus aset ini?')) return;
+        const { error } = await supabaseClient.from('assets').delete().eq('id', id);
+        if (error) {
+            showNotification('Gagal menghapus aset: ' + error.message, 'error');
+        } else {
+            showNotification('Aset berhasil dihapus.', 'success');
+            generateAssetReport(); // PERBAIKAN: Memuat ulang laporan setelah delete
+            renderDashboard(); // Memuat ulang dasbor juga
+        }
+    }
+
+    async function populateFormForEdit(id) { showPage(mainContainer); const { data, error } = await supabaseClient.from('assets').select('*').eq('id', id).single(); if (error) return showNotification('Gagal mengambil data untuk diedit.', 'error'); addAssetForm.querySelector('#assetId').value = data.id; addAssetForm.querySelector('#namaAsset').value = data.nama_aset; addAssetForm.querySelector('#kodeAsset').value = data.kode_aset; addAssetForm.querySelector('#departemenAsset').value = data.departemen; addAssetForm.querySelector('#statusAsset').value = data.status; addAssetForm.querySelector('#hargaAsset').value = data.harga_pembelian; addAssetForm.querySelector('#tanggalBeliAsset').value = data.tanggal_pembelian; addAssetForm.querySelector('#umurManfaatAsset').value = data.umur_manfaat_tahun; addAssetForm.querySelector('button[type="submit"]').textContent = '💾 Update Aset'; addAssetForm.scrollIntoView({ behavior: 'smooth' }); }
+    function resetForm() { addAssetForm.reset(); addAssetForm.querySelector('#assetId').value = ''; addAssetForm.querySelector('button[type="submit"]').textContent = '💾 Simpan Aset'; }
+    
+    async function exportToCsv() {
+        showNotification('Mempersiapkan data...', 'success');
+        // Mengambil data sesuai filter yang sedang aktif di halaman laporan
+        let query = supabaseClient.from('assets').select('nama_aset,kode_aset,departemen,status,harga_pembelian,tanggal_pembelian,created_at');
+        const keyword = searchKeywordInput.value.trim();
+        const department = filterDepartmentSelect.value;
+        const status = filterStatusSelect.value;
+        if (keyword) query = query.or(`nama_aset.ilike.%${keyword}%,kode_aset.ilike.%${keyword}%`);
+        if (department) query = query.eq('departemen', department);
+        if (status) query = query.eq('status', status);
+        const { data, error } = await query;
+
+        if (error || data.length === 0) return showNotification('Tidak ada data untuk di-export.', 'error');
+        const headers = '"Nama Aset","Kode Aset","Departemen","Status","Harga Pembelian","Tanggal Pembelian","Tanggal Dibuat"';
+        const csvRows = data.map(row => {
+            const purchasePrice = new Intl.NumberFormat('id-ID').format(row.harga_pembelian || 0);
+            const purchaseDate = row.tanggal_pembelian || '';
+            const createdDate = new Date(row.created_at).toLocaleDateString('id-ID');
+            return `"${row.nama_aset}","${row.kode_aset}","${row.departemen}","${row.status}","${purchasePrice}","${purchaseDate}","${createdDate}"`;
+        });
+        const csvContent = `${headers}\n${csvRows.join('\n')}`;
+        const link = document.createElement('a');
+        link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+        link.download = `daftar-aset-${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    
+    async function generateAndPrint(assetId) { const { data: asset, error } = await supabaseClient.from('assets').select('*').eq('id', assetId).single(); if (error) return showNotification('Gagal mengambil data aset.', 'error'); const qrContent = JSON.stringify({ id: asset.id, kode: asset.kode_aset, nama: asset.nama_aset }); const printWindow = window.open('', '', 'width=400,height=500'); printWindow.document.write(`<html><head><title>Cetak Aset</title></head><body style="font-family: Arial, sans-serif; text-align: center; margin-top: 20px;"><img src="${asset.gambar_url || ''}" style="max-width: 150px; margin-bottom: 10px; display: ${asset.gambar_url ? 'block' : 'none'}; margin-left: auto; margin-right: auto;"><h3>${asset.nama_aset}</h3><p><strong>Kode:</strong> ${asset.kode_aset}</p><p><strong>Departemen:</strong> ${asset.departemen}</p><canvas id="qrCodeCanvasPrint" style="margin-top: 15px;"></canvas></body></html>`); printWindow.document.close(); const qrCanvas = printWindow.document.getElementById('qrCodeCanvasPrint'); QRCode.toCanvas(qrCanvas, qrContent, { width: 200 }, (err) => { if (err) console.error(err); printWindow.focus(); printWindow.print(); printWindow.close(); }); }
+    function toggleDarkMode() { document.body.classList.toggle('dark-mode'); }
+    function startScanner() { scannerSection.classList.remove('hidden'); html5QrCode = new Html5Qrcode("reader"); const qrCodeSuccessCallback = (decodedText, decodedResult) => { stopScanner(); try { const assetData = JSON.parse(decodedText); if (assetData.id) { showNotification(`Aset ${assetData.nama} ditemukan!`, 'success'); populateFormForEdit(assetData.id); } else { showNotification('Format QR Code tidak valid.', 'error'); } } catch (e) { showNotification('Gagal membaca data dari QR Code.', 'error'); console.error("Error parsing QR Code JSON:", e); } }; html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, qrCodeSuccessCallback).catch(err => { showNotification('Gagal memulai scanner. Izinkan akses kamera.', 'error'); console.error("Error starting scanner:", err); }); }
+    function stopScanner() { if (html5QrCode && html5QrCode.isScanning) { html5QrCode.stop().then(() => { scannerSection.classList.add('hidden'); }).catch(err => { console.error("Gagal menghentikan scanner:", err); scannerSection.classList.add('hidden'); }); } else { scannerSection.classList.add('hidden'); } }
+
+    // --- 5. OTENTIKASI & EVENT LISTENERS ---
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+            loginSection.classList.add('hidden');
+            globalControls.classList.remove('hidden');
+            showPage(mainContainer);
+            renderDashboard(); // PERBAIKAN: Panggil renderDashboard saat login berhasil
+        } else {
+            loginSection.classList.remove('hidden');
+            showPage(null);
+            globalControls.classList.add('hidden');
+            userEmailSpan.textContent = '';
+        }
+    });
+
+    loginForm.addEventListener('submit', async (event) => { event.preventDefault(); const email = document.getElementById('email').value; const password = document.getElementById('password').value; const { error } = await supabaseClient.auth.signInWithPassword({ email, password }); if (error) showNotification('Login gagal: ' + error.message, 'error'); });
+    logoutBtn.addEventListener('click', () => supabaseClient.auth.signOut());
+    addAssetForm.addEventListener('submit', handleFormSubmit);
+    viewReportBtn.addEventListener('click', () => { showPage(reportContainer); populateFilterOptions(); generateAssetReport(); });
+    viewImportBtn.addEventListener('click', () => showPage(importContainer));
+    backToMainButtons.forEach(button => { button.addEventListener('click', () => { showPage(mainContainer); renderDashboard(); }); });
+    applyFilterBtn.addEventListener('click', generateAssetReport);
+    reportContent.addEventListener('click', function(event) { const button = event.target.closest('button'); if (!button) return; const id = button.dataset.id; if (button.matches('.print-btn')) generateAndPrint(id); if (button.matches('.edit-btn')) populateFormForEdit(id); if (button.matches('.delete-btn')) deleteAsset(id); });
+    exportBtn.addEventListener('click', exportToCsv);
+    darkModeToggle.addEventListener('click', toggleDarkMode);
+    importCsvBtn.addEventListener('click', handleCsvImport);
+    scanAssetBtn.addEventListener('click', startScanner);
+    closeScannerBtn.addEventListener('click', stopScanner);
+
+</script>
+</body>
+</html>
